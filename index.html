@@ -168,6 +168,30 @@ td.v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:righ
 td.note{color:var(--muted);font-size:12.5px}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}
 @media (max-width:1000px){.cols{grid-template-columns:1fr}}
+.straight{padding:16px;display:flex;flex-direction:column;gap:16px}
+.sr-grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.sr-grid{grid-template-columns:minmax(0,1fr)}}
+.sr-controls{display:flex;flex-direction:column;gap:14px}
+.sr-res{display:flex;flex-direction:column;gap:10px;min-width:0}
+.sr-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+@media (max-width:560px){.sr-tiles{grid-template-columns:minmax(0,1fr)}}
+.sr-tiles .v{font-size:20px}
+.sr-diag{overflow-x:auto}
+.sr-diag svg{display:block;width:100%;min-width:560px;height:auto}
+.sr-diag text{font-family:var(--f-mono);font-size:12px;fill:var(--ink)}
+.sr-diag text.m{fill:var(--muted);font-size:11px}
+details.sr-table{border-top:1px solid var(--line);padding-top:12px}
+details.sr-table summary{cursor:pointer;font-weight:600;font-family:var(--f-display);font-size:16px;letter-spacing:.02em}
+details.sr-table p{color:var(--muted);font-size:12.5px;max-width:90ch;margin:8px 0}
+.sr-table table{min-width:640px}
+.sr-table th{font:600 11px var(--f-mono);color:var(--muted);text-align:right;padding:6px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.sr-table th:first-child{text-align:left;padding-left:0}
+.sr-table td{padding:4px 6px}
+.sr-table td:first-child{padding-left:0;font-size:13px}
+.sr-table td.cur, .sr-table th.cur{background:color-mix(in srgb,var(--gas) 16%,transparent)}
+input.cell{width:6ch;font:13px var(--f-mono);text-align:right;color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:2px 4px}
+input.cell:focus-visible{outline:2px solid var(--flow);outline-offset:1px}
+input.cell.edited{border-color:var(--gas-ink)}
 footer{color:var(--muted);font-size:12px;max-width:90ch}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -220,6 +244,11 @@ footer{color:var(--muted);font-size:12px;max-width:90ch}
             <span class="val"><input class="n" id="n-sg" type="number" step="0.005" aria-label="Specific gravity"></span></div>
           <input type="range" id="r-sg" min="0.554" max="0.9" step="0.001">
         </div>
+        <div class="row">
+          <div class="lab"><label class="name" for="n-cf">Erosional C factor</label>
+            <span class="val"><input class="n" id="n-cf" type="number" step="5" min="10" aria-label="API RP 14E C factor"></span></div>
+          <span class="sub">API RP 14E · 100 typical for continuous clean gas, lower if sand or liquids</span>
+        </div>
       </div>
 
       <div class="group">
@@ -246,7 +275,7 @@ footer{color:var(--muted);font-size:12px;max-width:90ch}
         <div class="tile"><span class="k">Flow rate</span><span class="v" id="t-q">0<small>Mcf/d</small></span><span class="s" id="t-q2">0 Mcf/h</span></div>
         <div class="tile"><span class="k">Differential</span><span class="v" id="t-dp">0<small>inH₂O</small></span><div class="bar"><b id="t-dpbar"></b></div><span class="s" id="t-dp2">0% of 200 range</span></div>
         <div class="tile"><span class="k">Beta ratio</span><span class="v" id="t-b">0</span><span class="s" id="t-b2">Cd 0.6</span></div>
-        <div class="tile"><span class="k">Line velocity</span><span class="v" id="t-v">0<small>ft/s</small></span><span class="s" id="t-v2">bore 0 ft/s</span></div>
+        <div class="tile"><span class="k">Line velocity</span><span class="v" id="t-v">0<small>ft/s</small></span><div class="bar"><b id="t-vbar"></b></div><span class="s" id="t-v2">bore 0 ft/s</span></div>
       </div>
       <div class="warns" id="warns" aria-live="polite"></div>
     </div>
@@ -340,6 +369,39 @@ footer{color:var(--muted);font-size:12px;max-width:90ch}
     </aside>
   </section>
 
+  <section class="panel straight" aria-labelledby="sr-h">
+    <div class="sec-head"><div><h2 id="sr-h">Straight run</h2>
+      <p>Straight pipe needed between the nearest upstream fitting and the plate, and downstream of the plate, for the current pipe size and beta.</p></div></div>
+    <div class="sr-grid">
+      <div class="sr-controls">
+        <div class="row"><label class="name" for="sel-fit">Nearest upstream fitting</label>
+          <select class="sel" id="sel-fit"></select></div>
+        <div class="row"><span class="name" id="lbl-cond">Flow conditioning</span>
+          <div class="seg" role="group" aria-labelledby="lbl-cond">
+            <button type="button" data-cond="none" aria-pressed="true">None</button>
+            <button type="button" data-cond="bundle" aria-pressed="false">19-tube bundle</button>
+            <button type="button" data-cond="iso" aria-pressed="false">Isolating</button>
+          </div></div>
+        <p class="hint" id="sr-col">Using the β ≤ 0.50 column.</p>
+      </div>
+      <div class="sr-res">
+        <div class="sr-tiles">
+          <div class="tile"><span class="k">Upstream UL</span><span class="v" id="sr-ul">—</span><span class="s" id="sr-ul2">—</span></div>
+          <div class="tile"><span class="k">Downstream DL</span><span class="v" id="sr-dl">—</span><span class="s" id="sr-dl2">—</span></div>
+          <div class="tile"><span class="k" id="sr-k3">Thermowell</span><span class="v" id="sr-tw">—</span><span class="s" id="sr-tw2">—</span></div>
+        </div>
+        <div class="warns" id="sr-warns"></div>
+      </div>
+    </div>
+    <div class="sr-diag" id="sr-diag"></div>
+    <details class="sr-table">
+      <summary>Length table in pipe diameters (edit to match your copy of API 14.3.2)</summary>
+      <p>Pre-filled with ISO 5167-2:2003 Table 3 reference values (zero additional uncertainty), plus the AGA-3 Part 2 recommendations of 95 D for two elbows in perpendicular planes and 145 D for fittings the tables don't list. AGA-3 Part 2 (API MPMS 14.3.2, 2016) Tables 7, 8a and 8b govern AGA meter tubes and differ from these in places. Type your values over them. Blank cells mean no value. A beta between columns uses the next higher column. Edits are saved in this browser only.</p>
+      <div class="tbl"><table id="sr-tbl"></table></div>
+      <div class="btns" style="margin-top:10px"><button class="btn" type="button" id="sr-restore">Restore defaults</button></div>
+    </details>
+  </section>
+
   <section class="panel sheet">
     <div class="sec-head"><div><h2>Calculation sheet</h2><p>Values for the settings above with a healthy plate and a perfect transmitter.</p></div></div>
     <div class="eq">q<sub>m</sub> = C<sub>d</sub> · E<sub>v</sub> · Y · (π/4)·d² · √(2·ρ<sub>1</sub>·ΔP)
@@ -356,7 +418,7 @@ const $=id=>document.getElementById(id);
 const PIPES=[["2",2.067],["3",3.068],["4",4.026],["6",6.065],["8",7.981],["10",10.020],["12",11.938],["16",15.000],["20",18.812],["24",22.624]];
 const IN=0.0254,PSI=6894.757,INH2O=248.84,RU=8.314462,MAIR=0.0289625,PATM=14.73,MU=1.0268e-5,KAPPA=1.3,SCF=0.0283168466,HV=1.037;
 const EDGE=[0,0.025,0.06], BACK=1.17, TOM=1000/1440;
-const S={pipeIdx:2,bore:2.0,P:500,T:60,SG:0.6,dp:100,flow:0,hold:'dp',urv:200,noise:0.5,swing:5,zero:0,span:0,edge:0,backwards:false,boreErr:0,speed:60,price:3,running:true};
+const S={pipeIdx:2,bore:2.0,P:500,T:60,SG:0.6,dp:100,flow:0,hold:'dp',urv:200,noise:0.5,swing:5,zero:0,span:0,edge:0,backwards:false,boreErr:0,speed:60,price:3,running:true,cf:100};
 let R={},G={};
 
 /* ---------- physics ---------- */
@@ -383,7 +445,7 @@ function compute(){const D=PIPES[S.pipeIdx][1];G=gasState();
   else{S.dp=dpFromFlow(S.flow,S.bore,D,G);R=flowFromDP(S.dp,S.bore,D,G);}
   R.D=D;R.qmax=flowFromDP(800,S.bore,D,G).mscfd;
   const b=R.b,C=R.C,s=Math.sqrt(1-Math.pow(b,4)*(1-C*C));R.omega=(s-C*b*b)/(s+C*b*b);R.loss=R.omega*S.dp;
-  const Dm=D*IN;R.v1=R.qm/(G.rho*Math.PI/4*Dm*Dm)*3.28084;R.v2=R.v1/(b*b);}
+  const Dm=D*IN;R.v1=R.qm/(G.rho*Math.PI/4*Dm*Dm)*3.28084;R.v2=R.v1/(b*b);R.ve=S.cf/Math.sqrt(G.rho*0.062428);}
 
 /* ---------- formatting ---------- */
 const nf={};function f(n,d){d=d||0;const k=d;if(!nf[k])nf[k]=new Intl.NumberFormat('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});return nf[k].format(n);}
@@ -414,17 +476,22 @@ function render(){
   $('t-dp').innerHTML=f(S.dp,1)+'<small>inH₂O</small>';const pr=S.dp/S.urv*100;const bar=$('t-dpbar');bar.style.width=Math.min(100,pr)+'%';bar.classList.toggle('over',pr>100);
   $('t-dp2').textContent=f(pr,0)+'% of '+S.urv+' inH₂O range';
   $('t-b').textContent=R.b.toFixed(4);$('t-b2').textContent='Cd '+R.C.toFixed(4)+' · Y '+R.Y.toFixed(4);
-  $('t-v').innerHTML=f(R.v1,1)+'<small>ft/s</small>';$('t-v2').textContent='bore '+f(R.v2,0)+' ft/s · loss '+f(R.loss,1)+' inH₂O';
-  renderWarns();renderSheet();
+  $('t-v').innerHTML=f(R.v1,1)+'<small>ft/s</small>';const vr=R.v1/R.ve*100,vb=$('t-vbar');vb.style.width=Math.min(100,vr)+'%';vb.classList.toggle('over',vr>100);
+  $('t-v2').textContent=f(vr,0)+'% of erosional '+f(R.ve,0)+' ft/s · bore '+f(R.v2,0);
+  if(document.activeElement!==$('n-cf'))$('n-cf').value=S.cf;
+  renderWarns();renderSheet();renderStraight();
 }
 function renderWarns(){const w=[],b=R.b;
   if(b>0.75)w.push(['bad','β '+b.toFixed(3)+' is above the AGA-3 limit of 0.75. Fit a smaller bore or a larger meter run.']);
   else if(b<0.10)w.push(['bad','β '+b.toFixed(3)+' is below the AGA-3 limit of 0.10. Fit a larger bore.']);
-  else if(b>0.60)w.push(['warn','β '+b.toFixed(3)+' is legal but high. Coefficient uncertainty and sensitivity to upstream disturbances rise above about 0.6.']);
+  else if(b>0.60)w.push(['warn','β '+b.toFixed(3)+' is inside the AGA-3 range, with tradeoffs. Above 0.6 the Cd uncertainty climbs from about 0.5% toward 0.75%, the meter needs a longer straight run or a flow conditioner, and there is little room to fit a bigger plate if flow grows. You gain capacity and lower permanent pressure loss. Many operators aim for β 0.4–0.5 at normal flow.']);
+  else if(b<0.20)w.push(['warn','β '+b.toFixed(3)+' is inside the AGA-3 range but low. Cd uncertainty rises below 0.2 and permanent pressure loss is high; a larger bore or smaller meter run would measure better.']);
   const x1=S.dp*INH2O/G.P1;if(x1>0.25)w.push(['bad','ΔP is '+f(x1*100,0)+'% of upstream absolute pressure. The expansion factor is only valid while downstream/upstream pressure stays at 0.75 or higher.']);
   if(S.dp>S.urv)w.push(['bad','ΔP of '+f(S.dp,1)+' inH₂O is over the 0–'+S.urv+' inH₂O transmitter range. The transmitter saturates and the flow computer under-reads.']);
   else if(S.dp>0&&S.dp<0.1*S.urv)w.push(['warn','ΔP sits at '+f(S.dp/S.urv*100,0)+'% of transmitter range. Square-root extraction magnifies low-end error; consider a smaller bore or a lower range.']);
-  if(R.v1>80)w.push(['warn','Line velocity of '+f(R.v1,0)+' ft/s is high. Expect noisy differential and plate erosion.']);
+  if(R.v1>R.ve)w.push(['bad','Line velocity of '+f(R.v1,1)+' ft/s is above the API RP 14E erosional velocity of '+f(R.ve,0)+' ft/s (C '+S.cf+' ÷ √'+f(G.rho*0.062428,2)+' lb/ft³). Expect plate edge wear, a noisy differential and pipe erosion. Use a larger meter run.']);
+  else if(R.v1>0.8*R.ve)w.push(['warn','Line velocity of '+f(R.v1,1)+' ft/s is '+f(R.v1/R.ve*100,0)+'% of the '+f(R.ve,0)+' ft/s erosional velocity. Little margin if flow rises or the gas carries solids.']);
+  else if(R.v1>60)w.push(['warn','Line velocity of '+f(R.v1,0)+' ft/s is under the erosional limit but above the 20–60 ft/s many meter stations design for. Expect a noisier differential.']);
   if(R.Re>0&&R.Re<4000)w.push(['warn','Pipe Reynolds number is below 4,000, outside the RHG equation’s range.']);
   if(!w.length)w.push(['ok','Sizing is inside AGA-3 limits and the transmitter range.']);
   $('warns').innerHTML=w.map(x=>'<div class="chip '+x[0]+'"><span>'+x[1]+'</span></div>').join('');}
@@ -445,6 +512,7 @@ function renderSheet(){const D=R.D,lbft=0.062428;
    ['Pressure ratio term, x<sub>1</sub> = ΔP/P<sub>1</sub>',(S.dp*INH2O/G.P1).toFixed(5),'keep ≤ 0.25'],
    ['Pipe velocity',f(R.v1,2)+' ft/s',f(R.v1/3.28084,2)+' m/s'],
    ['Bore velocity',f(R.v2,1)+' ft/s','through the orifice'],
+   ['Erosional velocity, V<sub>e</sub> = C/√ρ',f(R.ve,1)+' ft/s','API RP 14E, C '+S.cf+' · line at '+f(R.v1/R.ve*100,0)+'%'],
    ['Permanent pressure loss',f(R.loss,2)+' inH₂O',f(R.omega*100,1)+'% of ΔP · '+f(R.loss*INH2O/PSI,3)+' psi'],
    ['Mass flow, q<sub>m</sub>',f(R.qm*7936.64,0)+' lb/h',f(R.qm,4)+' kg/s'],
    ['Standard volume flow, Q<sub>b</sub>',f(S.flow*TOM,1)+' SCFM',f(S.flow,1)+' Mcf/d · '+f(S.flow/24,2)+' Mcf/h']];
@@ -459,6 +527,7 @@ on('r-bore','input',e=>{S.bore=+e.target.value;render();});
 on('n-bore','change',e=>{const v=+e.target.value;if(v>0)S.bore=Math.min(maxBore(),Math.max(0.125,v));render();});
 on('r-p','input',e=>{S.P=+e.target.value;render();});on('n-p','change',e=>{S.P=Math.max(0,Math.min(3000,+e.target.value||0));render();});
 on('r-t','input',e=>{S.T=+e.target.value;render();});on('n-t','change',e=>{S.T=Math.max(-40,Math.min(200,+e.target.value||0));render();});
+on('n-cf','change',e=>{S.cf=Math.max(10,Math.min(300,+e.target.value||100));render();});
 on('r-sg','input',e=>{S.SG=+e.target.value;render();});on('n-sg','change',e=>{S.SG=Math.max(0.554,Math.min(1.2,+e.target.value||0.6));render();});
 on('r-flow','input',e=>{S.hold='flow';S.flow=(+e.target.value)/1000*R.qmax;render();});
 on('n-flow','change',e=>{S.hold='flow';S.flow=Math.max(0,+e.target.value||0)/TOM;render();});
@@ -618,6 +687,84 @@ function drawChart(){const cv=$('chart');const [ctx,W,H]=fit(cv);ctx.clearRect(0
   ctx.setLineDash([5,4]);ctx.strokeStyle=COL.muted;ctx.lineWidth=1.5;ctx.beginPath();h.forEach((p,i)=>{i?ctx.lineTo(X(off+i),Y(p.qT)):ctx.moveTo(X(off+i),Y(p.qT));});ctx.stroke();ctx.setLineDash([]);
   ctx.strokeStyle=COL.trace;ctx.lineWidth=2;ctx.lineJoin='round';ctx.beginPath();h.forEach((p,i)=>{i?ctx.lineTo(X(off+i),Y(p.qI)):ctx.moveTo(X(off+i),Y(p.qI));});ctx.stroke();
   const lp=h[h.length-1];ctx.fillStyle=COL.trace;ctx.beginPath();ctx.arc(X(HIST-1),Y(lp.qI),3.5,0,Math.PI*2);ctx.fill();}
+
+/* ---------- straight run ---------- */
+const BETAS=[0.2,0.4,0.5,0.6,0.67,0.75];
+const SR_DEF={
+ elbow:{n:'Single 90° elbow',v:[6,16,22,42,44,44]},
+ same:{n:'Two 90° elbows, same plane',v:[10,10,22,42,44,44]},
+ perp:{n:'Two 90° elbows, perpendicular planes',v:[null,null,95,95,95,95]},
+ tee:{n:'Single 90° tee used as elbow',v:[3,9,19,29,36,44]},
+ red:{n:'Concentric reducer',v:[5,5,8,9,12,13]},
+ exp:{n:'Concentric expander',v:[6,12,20,26,28,36]},
+ valve:{n:'Full-bore ball or gate valve, fully open',v:[12,12,12,14,18,24]},
+ valvep:{n:'Partially closed valve (at least 50% open)',v:[null,null,null,null,null,null]},
+ other:{n:'Other or unknown fitting',v:[null,145,145,145,145,145]},
+ bundle:{n:'With 19-tube bundle: total UL',v:[null,null,null,null,null,null],sp:1},
+ down:{n:'Downstream DL (all fittings)',v:[4,6,6,7,7,8],sp:1}};
+const FITS=['elbow','same','perp','tee','red','exp','valve','valvep','other'];
+let SR=JSON.parse(JSON.stringify(SR_DEF));
+try{const sv=JSON.parse(localStorage.getItem('om-straight-v1')||'null');if(sv)for(const k in sv)if(SR[k]&&Array.isArray(sv[k])&&sv[k].length===6)SR[k].v=sv[k];}catch(e){}
+function srSave(){try{const o={};for(const k in SR)o[k]=SR[k].v;localStorage.setItem('om-straight-v1',JSON.stringify(o));}catch(e){}}
+S.srFit='elbow';S.srCond='none';
+$('sel-fit').innerHTML=FITS.map(k=>'<option value="'+k+'">'+SR[k].n+'</option>').join('');
+on('sel-fit','change',e=>{S.srFit=e.target.value;renderStraight();});
+document.querySelectorAll('[data-cond]').forEach(b=>b.addEventListener('click',()=>{S.srCond=b.dataset.cond;
+  document.querySelectorAll('[data-cond]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderStraight();}));
+function buildTable(){const rows=[...FITS,'bundle','down'];
+  $('sr-tbl').innerHTML='<thead><tr><th>Configuration</th>'+BETAS.map((b,i)=>'<th data-c="'+i+'">β ≤ '+b.toFixed(2)+'</th>').join('')+'</tr></thead><tbody>'+
+  rows.map(k=>'<tr><td>'+SR[k].n+'</td>'+SR[k].v.map((v,i)=>{const ed=v!==SR_DEF[k].v[i];
+    return '<td data-c="'+i+'" style="text-align:right"><input class="cell'+(ed?' edited':'')+'" type="number" min="0" step="0.5" data-k="'+k+'" data-i="'+i+'" value="'+(v==null?'':v)+'" aria-label="'+SR[k].n+', beta up to '+BETAS[i]+'"></td>';}).join('')+'</tr>').join('')+'</tbody>';
+  $('sr-tbl').querySelectorAll('input').forEach(el=>el.addEventListener('change',()=>{const v=el.value.trim()===''?null:Math.max(0,+el.value);
+    SR[el.dataset.k].v[+el.dataset.i]=v;el.classList.toggle('edited',v!==SR_DEF[el.dataset.k].v[+el.dataset.i]);srSave();renderStraight();}));}
+on('sr-restore','click',()=>{SR=JSON.parse(JSON.stringify(SR_DEF));try{localStorage.removeItem('om-straight-v1');}catch(e){}buildTable();renderStraight();});
+function ftin(inches){const ft=Math.floor(inches/12+1e-9),i=Math.round(inches-ft*12);return i===12?(ft+1)+' ft 0 in':ft+' ft '+i+' in';}
+function renderStraight(){if(!$('sr-ul'))return;const b=R.b,D=R.D,nps=+PIPES[S.pipeIdx][0];
+  let col=-1;if(b<=0.75+1e-9){col=BETAS.findIndex(x=>b<=x+1e-9);}
+  document.querySelectorAll('#sr-tbl [data-c]').forEach(el=>el.classList.toggle('cur',+el.dataset.c===col));
+  const w=[];const fitN=SR[S.srFit].n.toLowerCase();
+  $('sr-col').textContent=col<0?'β is above 0.75, so no column applies.':'β '+b.toFixed(3)+' uses the β ≤ '+BETAS[col].toFixed(2)+' column (next value at or above).';
+  let ul=null,dl=null;
+  if(col>=0){dl=SR.down.v[col];ul=S.srCond==='none'?SR[S.srFit].v[col]:S.srCond==='bundle'?SR.bundle.v[col]:null;}
+  else w.push(['bad','β '+b.toFixed(3)+' is above 0.75. No straight-run table applies; fit a smaller bore or larger meter run.']);
+  if(col>=0&&S.srCond==='none'&&ul==null)w.push(['warn','There is no length in the table for a '+fitN+' at this beta. Enter the value from Table 7 of your copy of API 14.3.2, or add a flow conditioner.']);
+  if(S.srCond==='bundle'){
+    if(S.srFit==='tee'&&b>=0.67)w.push(['bad','A 19-tube bundle is not allowed downstream of a tee used as an elbow at β 0.67 and above.']);
+    if(S.srFit==='valvep'&&b>=0.60)w.push(['bad','A 19-tube bundle is not allowed downstream of a partially closed valve at β 0.60 and above.']);
+    if(col>=0&&ul==null)w.push(['warn','Enter the total upstream length and bundle position from Tables 8a/8b. With a 1998 19-tube bundle AGA-3 calls for roughly 5–14.5 D, rising with beta.']);
+    const bl=(nps<=2?3:nps<=4?2.5:2)*nps;w.push(['ok','Bundle length for '+nps+' in pipe: '+f(bl,1)+' in ('+(nps<=2?'3':nps<=4?'2.5':'2')+' × NPS). Its outlet must sit inside the window that Table 8a/8b gives for this beta.']);}
+  if(S.srCond==='iso')w.push(['ok','Install an isolating flow conditioner at the upstream and downstream lengths in its AGA-3 Annex D test report. Those vendor lengths replace the table values.']);
+  if(col>=0&&ul!=null&&S.srCond==='none'&&b>0.6&&ul>=40)w.push(['warn','At this beta the run needs '+f(ul,0)+' D ('+ftin(ul*D)+'). A smaller bore or a flow conditioner would shorten it considerably.']);
+  const tileUL=S.srCond==='iso'?'Vendor':ul==null?'—':f(ul,ul%1?1:0)+' D';
+  $('sr-ul').textContent=tileUL;$('sr-ul2').textContent=ul==null?(S.srCond==='iso'?'per Annex D test report':'no value in table'):ftin(ul*D)+' · '+f(ul*D,0)+' in';
+  $('sr-dl').textContent=dl==null?'—':f(dl,dl%1?1:0)+' D';$('sr-dl2').textContent=dl==null?'no value in table':ftin(dl*D)+' after the plate';
+  if(dl!=null){$('sr-tw').textContent=ftin(dl*D).replace(' 0 in','')+' – '+ftin(4*dl*D).replace(' 0 in','');
+    $('sr-tw2').textContent='downstream of plate (DL to 4·DL)'+(S.srCond!=='none'?', or ≥ 36 in upstream of conditioner':'');}
+  else{$('sr-tw').textContent='—';$('sr-tw2').textContent='needs a DL value';}
+  if(!w.length&&col>=0)w.push(['ok','Straight-run lengths found for a '+fitN+' at this beta.']);
+  $('sr-warns').innerHTML=w.map(x=>'<div class="chip '+x[0]+'"><span>'+x[1]+'</span></div>').join('');
+  drawStraight(ul,dl,D);}
+function drawStraight(ul,dl,D){const W=1000,H=150,x0=110,x1=W-20,py=62,ph=26;
+  const upD=ul!=null?ul:(S.srCond==='iso'?10:20),dnD=dl!=null?4*dl:24;
+  let wu=(x1-x0)*upD/(upD+dnD),wd=(x1-x0)-wu;if(wd<220){wd=220;wu=(x1-x0)-wd;}if(wu<240){wu=240;wd=(x1-x0)-wu;}
+  const xp=x0+wu,xdl=xp+wd*(dl!=null?1/4:0.25),xe=x1;let g='';
+  g+='<rect x="20" y="'+(py-14)+'" width="'+(x0-20)+'" height="'+(ph+28)+'" rx="6" fill="var(--sunk)" stroke="var(--steel-dark)"/>';
+  g+='<text x="'+((20+x0)/2)+'" y="'+(py+ph/2+4)+'" text-anchor="middle" class="m">fitting</text>';
+  g+='<rect x="'+x0+'" y="'+py+'" width="'+(xe-x0)+'" height="'+ph+'" fill="var(--pipe-in)" stroke="var(--steel)" stroke-width="2"/>';
+  if(dl!=null)g+='<rect x="'+xdl+'" y="'+py+'" width="'+(xe-xdl)+'" height="'+ph+'" fill="var(--gas)" opacity=".28"/>';
+  if(S.srCond!=='none'){const bx=x0+wu*0.35,bw=Math.max(34,wu*0.12);
+    g+='<rect x="'+bx+'" y="'+(py+3)+'" width="'+bw+'" height="'+(ph-6)+'" fill="none" stroke="var(--flow)" stroke-width="1.5"/>';
+    for(let i=1;i<4;i++)g+='<line x1="'+bx+'" x2="'+(bx+bw)+'" y1="'+(py+3+i*(ph-6)/4)+'" y2="'+(py+3+i*(ph-6)/4)+'" stroke="var(--flow)" stroke-width="1"/>';
+    g+='<text x="'+(bx+bw/2)+'" y="'+(py+ph+18)+'" text-anchor="middle" class="m">'+(S.srCond==='bundle'?'tube bundle':'conditioner')+'</text>';}
+  g+='<rect x="'+(xp-3)+'" y="'+(py-12)+'" width="6" height="'+(ph+24)+'" fill="var(--plate)"/>';
+  g+='<text x="'+xp+'" y="'+(py+ph+30)+'" text-anchor="middle" class="m">plate</text>';
+  const dim=(a,c,y,lab)=>'<line x1="'+a+'" x2="'+c+'" y1="'+y+'" y2="'+y+'" stroke="var(--ink)"/><line x1="'+a+'" x2="'+a+'" y1="'+(y-5)+'" y2="'+(y+5)+'" stroke="var(--ink)"/><line x1="'+c+'" x2="'+c+'" y1="'+(y-5)+'" y2="'+(y+5)+'" stroke="var(--ink)"/><text x="'+((a+c)/2)+'" y="'+(y-7)+'" text-anchor="middle">'+lab+'</text>';
+  g+=dim(x0,xp,30,ul!=null?'UL '+f(ul,ul%1?1:0)+' D · '+ftin(ul*D):(S.srCond==='iso'?'UL per conditioner test report':'UL — no table value'));
+  if(dl!=null){g+=dim(xp,xdl,30,'DL '+f(dl,dl%1?1:0)+' D');
+    g+='<text x="'+((xdl+xe)/2)+'" y="'+(py+ph/2+4)+'" text-anchor="middle" class="m">thermowell zone to 4·DL ('+ftin(4*dl*D)+')</text>';}
+  g+='<text x="'+x0+'" y="'+(H-6)+'" class="m">flow →</text><text x="'+xe+'" y="'+(H-6)+'" text-anchor="end" class="m">'+PIPES[S.pipeIdx][0]+' in, ID '+f(D,3)+' in · β '+R.b.toFixed(3)+' · schematic, not to scale</text>';
+  $('sr-diag').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Meter tube layout with upstream and downstream straight lengths">'+g+'</svg>';}
+buildTable();
 
 /* ---------- boot ---------- */
 render();fv();syncEdge();
